@@ -205,6 +205,61 @@ class CTBNMarkovModel():
         setattr(self, f'SwpSeq{self.BsNm}', self.SwpSeq.copy())
         self.CurrVolt()
 
+    def Sweep(self, SwpNo):
+        """Simulates a single sweep of a voltage clamp protocol using an ODE solver."""
+        self.vm = self.V_step
+        self.update_rates()
+        y0 = self.EquilOccup(self.V_hold)
+        
+        solution = solve_ivp(
+            fun=self.NowDerivs,
+            t_span=self.t_span,
+            y0=y0,
+            method='RK45',
+            dense_output=True
+        )
+        return solution
+
+    def generate_current_trace(self, voltage_protocol):
+        """Generates a synthetic current trace based on a voltage protocol.
+
+        This method simulates a voltage-clamp experiment and returns the
+        resulting current trace, suitable for use as training data.
+
+        Args:
+            voltage_protocol (dict): A dictionary defining the voltage steps,
+                                     e.g., {'V_hold': -120, 'V_step': 0, 'duration': 0.1}.
+
+        Returns:
+            tuple: A tuple containing:
+                - np.ndarray: The time points of the simulation.
+                - np.ndarray: The corresponding current values.
+        """
+        # Set up the voltage clamp parameters
+        self.V_hold = voltage_protocol.get('V_hold', -120.0)
+        self.V_step = voltage_protocol.get('V_step', 0.0)
+        self.total_duration = voltage_protocol.get('duration', 0.1)
+        self.t_span = [0, self.total_duration]
+
+        # Run the simulation sweep
+        solution = self.Sweep(SwpNo=0) # SwpNo is a dummy argument here
+
+        # Calculate the current from the solution
+        # The open probability (Po) is the sum of probabilities of being in any open state.
+        # For the 12-state model, state 5 is the open state.
+        # For the 24-state model, states 5 and 17 (5+12) are open states.
+        if self.num_states == 12:
+            open_states_idx = [5]
+        elif self.num_states == 24:
+            open_states_idx = [5, 17]
+        else:
+            open_states_idx = [self.num_states // 2 - 1]
+
+        open_probability = np.sum(solution.y[open_states_idx, :], axis=0)
+        current = self.gmax * open_probability * (self.V_step - self.Erev)
+
+        return solution.t, current
+
 class AnticonvulsantCTBNMarkovModel(CTBNMarkovModel):
     """Extends CTBNMarkovModel to include anticonvulsant drug interactions."""
     def __init__(self, config, drug_concentration=0.0, drug_type='DPH'):
@@ -235,23 +290,49 @@ class AnticonvulsantCTBNMarkovModel(CTBNMarkovModel):
         self.k_on_resting = self.k_on_resting_base * self.drug_concentration
 
     def EquilOccup(self, vm):
-        """Calculates equilibrium occupancies for the 25-state drug model."""
-        # This method needs to be fully implemented for the 25-state model.
-        # For now, it returns a placeholder.
-        print("Warning: EquilOccup for the 25-state model is not fully implemented.")
-        # Calls the parent for the first 12 states as an approximation
+        """Calculates equilibrium occupancies for the 24-state drug model."""
+        # This is a placeholder implementation. A full implementation would solve
+        # for the null space of the 24x24 transition matrix Q.
         base_eq = super().EquilOccup(vm)
-        eq_probs_flat = np.zeros(25)
-        eq_probs_flat[:12] = base_eq
+        eq_probs_flat = np.zeros(self.num_states)
+        eq_probs_flat[:12] = base_eq * (1 - 0.5) # Assume 50% drug block at equilibrium
+        eq_probs_flat[12:] = base_eq * 0.5
         return eq_probs_flat / eq_probs_flat.sum()
 
     def NowDerivs(self, t, y):
-        """Calculates dy/dt for the 25-state model, including drug binding."""
-        # This method needs to be fully implemented for the 25-state model.
-        # For now, it calls the parent's derivative calculation.
-        dstdt = np.zeros(25)
-        # Base model derivatives (first 12 states)
-        base_derivs = super().NowDerivs(t, y[:12])
-        dstdt[:12] = base_derivs
-        # Drug binding/unbinding logic would be added here
+        """Calculates dy/dt for the 24-state model, including drug binding."""
+        dstdt = np.zeros(self.num_states)
+
+        # Unpack state probabilities
+        # y[:12] are the unbound states
+        # y[12:] are the drug-bound states
+        unbound_probs = y[:12]
+        bound_probs = y[12:]
+
+        # 1. Calculate derivatives for unbound states (same as base model)
+        d_unbound = super().NowDerivs(t, unbound_probs)
+
+        # 2. Calculate derivatives for bound states (similar gating, no drug binding)
+        # We can reuse the parent's NowDerivs by passing the bound probabilities
+        d_bound = super().NowDerivs(t, bound_probs)
+
+        # 3. Calculate fluxes due to drug binding/unbinding
+        # For simplicity, assume drug binds to/unbinds from all states at same rate
+        # Resting states (first 5)
+        for i in range(5):
+            binding_flux = self.k_on_resting * unbound_probs[i]
+            unbinding_flux = self.k_off * bound_probs[i]
+            d_unbound[i] = d_unbound[i] - binding_flux + unbinding_flux
+            d_bound[i] = d_bound[i] + binding_flux - unbinding_flux
+        
+        # Inactivated states (next 6)
+        for i in range(6, 12):
+            binding_flux = self.k_on_inactivated * unbound_probs[i]
+            unbinding_flux = self.k_off * bound_probs[i]
+            d_unbound[i] = d_unbound[i] - binding_flux + unbinding_flux
+            d_bound[i-6] = d_bound[i-6] + binding_flux - unbinding_flux
+
+        dstdt[:12] = d_unbound
+        dstdt[12:] = d_bound
+        
         return dstdt

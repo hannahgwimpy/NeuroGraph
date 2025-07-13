@@ -1,6 +1,6 @@
 {
-  "model_name": "Drug-Extended (25-state)",
-  "num_states": 25,
+  "model_name": "Drug-Extended (24-state)",
+  "num_states": 24,
   "base_parameters": {
     "alcoeff": 20,
     "alslp": 40,
