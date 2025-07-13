@@ -1,0 +1,31 @@
+# Core ML/GNN Frameworks
+- torch
+- torch-geometric
+- jax
+- jaxlib
+- pyro-ppl
+- numpyro
+
+# Graph Analysis
+- networkx
+
+# Interpretability
+- captum
+- shap
+
+# Data Handling
+- numpy
+- pandas
+- scikit-learn
+
+# Visualization
+- matplotlib
+- seaborn
+- plotly
+
+# Notebooks
+- jupyterlab
+
+# Testing
+- pytest
+- pytest-cov
