@@ -5,6 +5,7 @@
 - jaxlib
 - pyro-ppl
 - numpyro
+- scipy
 
 # Graph Analysis
 - networkx

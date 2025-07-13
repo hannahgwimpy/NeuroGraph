@@ -1,0 +1,53 @@
+{
+  "model_name": "Drug-Extended (25-state)",
+  "num_states": 25,
+  "base_parameters": {
+    "alcoeff": 20,
+    "alslp": 40,
+    "btcoeff": 0.3,
+    "btslp": 18.5,
+    "ConCoeff": 0.004,
+    "CoffCoeff": 4.5,
+    "ConSlp": 100000000.0,
+    "CoffSlp": 100000000.0,
+    "gmcoeff": 50,
+    "gmslp": 100,
+    "dlcoeff": 0.8,
+    "dlslp": 6,
+    "OpOnCoeff": 4,
+    "OpOffCoeff": 0.008,
+    "ConHiCoeff": 4,
+    "CoffHiCoeff": 0.008,
+    "OpOnSlp": 100000000.0,
+    "OpOffSlp": 100000000.0,
+    "numchan": 1,
+    "F": 96485,
+    "Rgc": 8314,
+    "Tkel": 298,
+    "Nao": 150,
+    "Nai": 15,
+    "ClipRate": 6000,
+    "current_scaling": 0.0125,
+    "PNasc": 1e-05
+  },
+  "drug_parameters": {
+    "CBZ": {
+      "KI_inactivated": 25.0,
+      "recovery_tau": 189.0,
+      "k_off_base": 0.005291005291005291,
+      "k_off_scaling": 0.55
+    },
+    "LTG": {
+      "KI_inactivated": 9.0,
+      "recovery_tau": 321.0,
+      "k_off_base": 0.003115264797507788,
+      "k_off_scaling": 0.42
+    },
+    "DPH": {
+      "KI_inactivated": 9.0,
+      "recovery_tau": 600.0,
+      "k_off_base": 0.0016666666666666668,
+      "k_off_scaling": 0.5
+    }
+  }
+}
